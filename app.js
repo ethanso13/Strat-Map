@@ -93,11 +93,25 @@ function cloudSave(years) {
 
 const state = {
   years: emptyYears(),
-  editing: true,
   showPrev: false,     // 2026 starts hidden; the toggle is view-only
   syncState: 'idle',   // idle | loading | saving | synced | offline
   justSaved: false
 };
+
+/* Eye / eye-off for the 2026 toggle. Static markup, no user data. */
+const ICON_EYE =
+  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>' +
+  '<circle cx="12" cy="12" r="3"></circle></svg>';
+
+const ICON_EYE_OFF =
+  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"></path>' +
+  '<path d="M6.61 6.61A18.5 18.5 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 4.24-1.02"></path>' +
+  '<path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"></path>' +
+  '<line x1="2" y1="2" x2="22" y2="22"></line></svg>';
 
 let cloudTimer = null;
 let savedTimer = null;
@@ -180,7 +194,7 @@ function renderBand(band, bi) {
 function renderLane(key, bi) {
   const isPrev = key === 'prev';
   const cells = state.years[key][bi] || [];
-  const canCopyAll = isPrev && state.editing && cells.length > 0;
+  const canCopyAll = isPrev && cells.length > 0;
 
   return h('div', { class: 'sm-lane' },
     h('div', { class: 'sm-lane-col' },
@@ -194,7 +208,7 @@ function renderLane(key, bi) {
       ),
       h('div', { class: 'sm-cards' },
         cells.map((cell, ci) => renderCard(cell, key, bi, ci)),
-        state.editing && h('button', {
+        h('button', {
           type: 'button', class: 'sm-addslot sm-noprint',
           onclick: () => mutate(y => { y[key][bi].push({ title: '', items: [] }); })
         }, '+ Add objective')
@@ -205,20 +219,19 @@ function renderLane(key, bi) {
 }
 
 function renderCard(cell, key, bi, ci) {
-  const locked = !state.editing;
-
   return h('article', { class: 'sm-card' },
     h('div', { class: 'sm-card-head' },
       h('textarea', {
         class: 'sm-in sm-title-in', rows: 2, placeholder: 'Objective',
-        value: cell.title, readOnly: locked,
+        value: cell.title,
         oninput: e => {
           const v = e.target.value;
           mutate(y => { y[key][bi][ci].title = v; }, false);
         }
       }),
-      state.editing && h('button', {
-        type: 'button', class: 'sm-x', title: 'Delete objective',
+      h('button', {
+        type: 'button', class: 'sm-x sm-noprint',
+        'aria-label': 'Delete objective', title: 'Delete objective',
         onclick: () => mutate(y => { y[key][bi].splice(ci, 1); })
       }, '×')
     ),
@@ -228,20 +241,21 @@ function renderCard(cell, key, bi, ci) {
       cell.items.map((item, ii) => h('div', { class: 'sm-measure' },
         h('textarea', {
           class: 'sm-in', rows: 1, placeholder: 'Measure',
-          value: item.text, readOnly: locked,
+          value: item.text,
           oninput: e => {
             const v = e.target.value;
             mutate(y => { y[key][bi][ci].items[ii].text = v; }, false);
           }
         }),
-        state.editing && h('button', {
-          type: 'button', class: 'sm-x sm-x--sm', title: 'Delete measure',
+        h('button', {
+          type: 'button', class: 'sm-x sm-x--sm sm-noprint',
+          'aria-label': 'Delete measure', title: 'Delete measure',
           onclick: () => mutate(y => { y[key][bi][ci].items.splice(ii, 1); })
         }, '×')
       ))
     ),
 
-    state.editing && h('div', { class: 'sm-card-actions sm-noprint' },
+    h('div', { class: 'sm-card-actions sm-noprint' },
       h('button', {
         type: 'button', class: 'sm-linkbtn sm-linkbtn--quiet',
         onclick: () => mutate(y => { y[key][bi][ci].items.push({ text: '', target: '' }); })
@@ -257,10 +271,12 @@ function renderCard(cell, key, bi, ci) {
 /* Toolbar labels repaint on their own so a sync-state change mid-typing
    never triggers a full re-render (which would drop the caret). */
 function paintToolbar() {
-  byId('btn-toggle-prev').textContent = (state.showPrev ? 'Hide ' : 'Show ') + PREV_YEAR;
-  byId('btn-toggle-edit').textContent = state.editing
-    ? 'Editing — click to lock'
-    : 'Locked — click to edit';
+  const eye = byId('btn-toggle-prev');
+  const eyeLabel = (state.showPrev ? 'Hide ' : 'Show ') + PREV_YEAR;
+  eye.innerHTML = state.showPrev ? ICON_EYE_OFF : ICON_EYE;
+  eye.setAttribute('aria-label', eyeLabel);
+  eye.setAttribute('title', eyeLabel);
+
   byId('btn-save').textContent =
     (state.syncState === 'saving' || state.syncState === 'loading') ? 'Syncing…' :
     state.syncState === 'offline' ? 'Offline — saved locally' :
@@ -276,22 +292,11 @@ byId('btn-toggle-prev').addEventListener('click', () => {
   render();
 });
 
-byId('btn-toggle-edit').addEventListener('click', () => {
-  state.editing = !state.editing;
-  render();
-});
-
 byId('btn-reset').addEventListener('click', () => {
   if (!window.confirm('Reset the map to the starting template? Your entries will be lost.')) return;
   state.years = emptyYears();
   persist();
   render();
-});
-
-byId('btn-print').addEventListener('click', () => {
-  state.editing = false;
-  render();
-  setTimeout(() => window.print(), 60);
 });
 
 // Save flushes past the debounce and writes immediately.

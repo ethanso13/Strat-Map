@@ -6,8 +6,17 @@ Interactive corporate strategy map (Office of the CEO), published at
 Four perspective bands — Finance, Business, Internal Business Process, Learning and
 Growth — each holding objectives and measures for the previous and current fiscal year.
 
-The previous year (2026) is **hidden by default**; use the *Show 2026* button to bring
-it back for side-by-side comparison. That toggle is view-only and is not persisted.
+The map is always editable — there is no lock mode. The toolbar is three controls:
+
+| Control | Does |
+|---|---|
+| 👁 eye icon | Show / hide the 2026 comparison lane. View-only, not persisted. |
+| ↺ reset icon | Restore the starting template (asks first). |
+| **Save** | Flush to Supabase immediately, and report sync state. |
+
+The previous year (2026) is **hidden by default**. There is no Export PDF button —
+the print stylesheet is still in place, so the browser's own Print / Save-as-PDF
+(Ctrl-P) produces a clean A4 landscape sheet with the editing controls stripped out.
 
 ## Files
 
@@ -82,8 +91,13 @@ The desktop design is a 1440px canvas. Two breakpoints:
 
 - **≤ 1180px** — the fixed width relaxes to fill the viewport.
 - **≤ 880px** — the year lanes stack, band labels rotate from vertical to horizontal
-  and sit above their cards, the 46px label gutter collapses, the toolbar wraps into
-  full-width 40px touch targets, and objectives go one per row.
+  and sit above their cards, the 46px label gutter collapses, the toolbar becomes two
+  44px icon buttons plus a full-width Save, and objectives go one per row.
+
+  Measure fields are also lifted to 16px here. iOS zooms the whole page when you focus
+  an input smaller than 16px, which made editing on a phone jump around; raising the
+  font size fixes it without `maximum-scale=1`, which would have disabled pinch-zoom
+  for everyone.
 
 Verified with no horizontal overflow at 375px, 768px, and 1440px.
 

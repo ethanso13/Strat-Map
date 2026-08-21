@@ -134,6 +134,12 @@ body {
 .sm-btn--primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
 .sm-btn--primary:hover { background: var(--color-accent-600); border-color: var(--color-accent-600); }
 
+.sm-btn--icon {
+  flex: 0 0 auto; width: 34px; height: 34px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sm-btn--icon svg { display: block; }
+
 /* ==========================================================================
    Bands
    ========================================================================== */
@@ -261,9 +267,16 @@ textarea.sm-in { field-sizing: content; overflow: hidden; min-height: 1.2em; }
   .sm-rail { grid-template-columns: 1fr; gap: 0; }
   .sm-rail-gutter { display: none; }
 
-  /* toolbar wraps; buttons get a real touch target */
+  /* one toolbar row: the two icons keep their size, Save takes the rest */
   .sm-tools { flex-wrap: wrap; gap: 8px; width: 100%; }
-  .sm-tools .sm-btn { flex: 1 1 auto; min-height: 40px; }
+  .sm-tools .sm-btn { min-height: 44px; }
+  .sm-tools .sm-btn--icon { flex: 0 0 44px; width: 44px; height: 44px; }
+  #btn-save { flex: 1 1 auto; }
+
+  /* iOS zooms the whole page when you focus an input smaller than 16px.
+     The objective title is already 17px; measures inherit 13px, so lift
+     just those. */
+  .sm-measure .sm-in { font-size: 16px; }
 
   /* band label turns horizontal and sits above its cards */
   .sm-band { grid-template-columns: 1fr; gap: 12px; padding: 18px 0 24px; }
@@ -283,7 +296,6 @@ textarea.sm-in { field-sizing: content; overflow: hidden; min-height: 1.2em; }
 
 @media (max-width: 520px) {
   .sm-page { padding: 20px 12px 32px; }
-  .sm-tools .sm-btn { flex: 1 1 100%; }
 }
 
 /* ==========================================================================
