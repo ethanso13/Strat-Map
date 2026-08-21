@@ -81,13 +81,20 @@ function normalizeYears(raw) {
 }
 
 /* ==========================================================================
-   Supabase — one row (id = 'default') holds the whole map
+   Supabase — one row per SBU, keyed by its code, holding both years.
+
+   Writes are scoped to the SBU and year on screen: the row is re-read and
+   only the selected year's lane is replaced. Writing the whole object back
+   would let someone editing FY2027 overwrite FY2026 with whatever stale
+   copy their browser happened to be holding.
    ========================================================================== */
 
 const SB_URL = 'https://bshdkeuvovulcixupwys.supabase.co';
 const SB_KEY = 'sb_publishable_-5B1hTP7hwIWW_5QkZ_Gvg_qtDXpsir';
 const SB_REST = SB_URL + '/rest/v1/strategy_map';
-const SB_ROW = 'default';
+
+const SBU = 'CORP';            // the row this page reads and writes
+const LEGACY_ROW = 'default';  // pre-SBU row: migrated from once, then left alone
 
 const sbHeaders = extra => Object.assign({
   'apikey': SB_KEY,
@@ -95,24 +102,41 @@ const sbHeaders = extra => Object.assign({
   'Content-Type': 'application/json'
 }, extra || {});
 
-function cloudLoad() {
-  return fetch(SB_REST + '?id=eq.' + SB_ROW + '&select=years', { headers: sbHeaders() })
+// a freshly seeded row starts as {} — that is "nothing stored yet", not data
+const populated = y => !!y && Array.isArray(y.prev) && Array.isArray(y.curr);
+
+function cloudGet(id) {
+  return fetch(SB_REST + '?id=eq.' + encodeURIComponent(id) + '&select=years', { headers: sbHeaders() })
     .then(r => { if (!r.ok) throw new Error('load ' + r.status); return r.json(); })
-    .then(rows => {
-      if (!rows.length) return null;
-      const y = rows[0].years;
-      // the seeded row starts as {} — treat that as "nothing stored yet"
-      if (!y || !Array.isArray(y.prev) || !Array.isArray(y.curr)) return null;
-      return normalizeYears(y);
-    });
+    .then(rows => (rows.length ? rows[0].years : null));
 }
 
-function cloudSave(years) {
+function cloudPut(id, years) {
   return fetch(SB_REST + '?on_conflict=id', {
     method: 'POST',
     headers: sbHeaders({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
-    body: JSON.stringify({ id: SB_ROW, years: years, updated_at: new Date().toISOString() })
+    body: JSON.stringify({ id: id, years: years, updated_at: new Date().toISOString() })
   }).then(r => { if (!r.ok) throw new Error('save ' + r.status); });
+}
+
+/* { years, migrated } — or null when nothing is stored for this SBU yet. */
+function cloudLoad() {
+  return cloudGet(SBU).then(y => {
+    if (populated(y)) return { years: normalizeYears(y), migrated: false };
+    // first run on the SBU-keyed row: adopt the old shared row's contents.
+    // The old row is left untouched so it stays available as a backup.
+    return cloudGet(LEGACY_ROW).then(legacy =>
+      populated(legacy) ? { years: normalizeYears(legacy), migrated: true } : null);
+  });
+}
+
+/* Replace only `yearKey`, keeping whatever the server holds for the other. */
+function cloudSaveYear(yearKey, lane) {
+  return cloudGet(SBU).then(remote => {
+    const merged = normalizeYears(populated(remote) ? remote : {});
+    merged[yearKey] = clone(lane);
+    return cloudPut(SBU, merged);
+  });
 }
 
 /* ==========================================================================
@@ -121,7 +145,7 @@ function cloudSave(years) {
 
 const state = {
   years: emptyYears(),
-  year: 'curr',        // horizon on screen: 'prev' (2026) | 'curr' (2027)
+  year: 'curr',        // year on screen: 'prev' (FY2026) | 'curr' (FY2027)
   syncState: 'idle',   // idle | loading | saving | synced | offline
   justSaved: false
 };
@@ -136,13 +160,16 @@ function cacheLocal() {
 }
 
 /* Write locally at once, push to the cloud on a debounce so a burst of
-   keystrokes becomes a single request. */
+   keystrokes becomes a single request. The year is captured when the write
+   is scheduled, so switching year mid-debounce still saves the lane that
+   was actually edited. */
 function persist() {
   cacheLocal();
   setSync('saving');
   clearTimeout(cloudTimer);
+  const yearKey = state.year;
   cloudTimer = setTimeout(() => {
-    cloudSave(state.years)
+    cloudSaveYear(yearKey, state.years[yearKey])
       .then(() => setSync('synced'))
       .catch(() => setSync('offline'));
   }, 700);
@@ -202,7 +229,7 @@ function autogrow(ta) {
 function render() {
   bandsEl.replaceChildren(...DEFAULT_BANDS.map((band, bi) => renderBand(band, bi)));
   bandsEl.querySelectorAll('textarea').forEach(autogrow);
-  paintHorizon();
+  paintMeta();
   paintToolbar();
 }
 
@@ -296,11 +323,13 @@ function renderCard(cell, key, bi, ci) {
 
 /* Toolbar labels repaint on their own so a sync-state change mid-typing
    never triggers a full re-render (which would drop the caret). */
-/* The Horizon dropdown is the year switcher, so the heading and tab title
-   follow it rather than sitting on a hard-coded year. */
-function paintHorizon() {
+/* The Year dropdown is the switcher, so the heading and tab title follow it
+   rather than sitting on a hard-coded year. SBU is written from the constant
+   so the markup and the row key cannot drift apart. */
+function paintMeta() {
   const year = YEAR_OF[state.year];
-  byId('horizon').value = state.year;
+  byId('sbu').textContent = SBU;
+  byId('year').value = state.year;
   byId('page-title').textContent = 'Strategy Map ' + year;
   document.title = 'Strategy Map ' + year + ' — Megawide';
 }
@@ -316,25 +345,31 @@ function paintToolbar() {
    Toolbar
    ========================================================================== */
 
-// Switching horizon is a view change only — nothing is written.
-byId('horizon').addEventListener('change', e => {
+// Switching year is a view change only — nothing is written.
+byId('year').addEventListener('change', e => {
   state.year = e.target.value === 'prev' ? 'prev' : 'curr';
   render();
 });
 
 byId('btn-reset').addEventListener('click', () => {
-  if (!window.confirm('Reset the map to the starting template? Your entries will be lost.')) return;
-  state.years = emptyYears();
+  const year = YEAR_OF[state.year];
+  if (!window.confirm('Reset FY' + year + ' to the starting template? Entries for FY' + year + ' will be lost.')) return;
+  // Scoped to the selected year to match what Save writes. Clearing both
+  // years would only persist half of it and leave the page out of step
+  // with the stored row.
+  state.years[state.year] = emptyYears()[state.year];
   persist();
   render();
 });
 
-// Save flushes past the debounce and writes immediately.
+// Save flushes past the debounce and writes immediately — still only the
+// year and SBU currently selected.
 byId('btn-save').addEventListener('click', () => {
   cacheLocal();
   clearTimeout(cloudTimer);
   setSync('saving');
-  cloudSave(state.years).then(() => {
+  const yearKey = state.year;
+  cloudSaveYear(yearKey, state.years[yearKey]).then(() => {
     state.justSaved = true;
     setSync('synced');
     clearTimeout(savedTimer);
@@ -368,15 +403,16 @@ byId('btn-save').addEventListener('click', () => {
 
   // 2. Reconcile against the cloud, which is the source of truth.
   setSync('loading');
-  cloudLoad().then(years => {
-    if (years) {
-      state.years = years;
+  cloudLoad().then(res => {
+    if (res) {
+      state.years = res.years;
       cacheLocal();
       render();
       setSync('synced');
-    } else {
-      // Nothing stored remotely yet — seed it from whatever we have locally.
-      return cloudSave(state.years).then(() => setSync('synced'));
+      // Finish the one-time move onto the SBU-keyed row.
+      return res.migrated ? cloudPut(SBU, state.years) : null;
     }
+    // Nothing stored for this SBU yet — seed it from whatever we have locally.
+    return cloudPut(SBU, state.years).then(() => setSync('synced'));
   }).catch(() => setSync('offline'));
 })();

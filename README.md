@@ -6,9 +6,10 @@ Interactive corporate strategy map (Office of the CEO), published at
 Four perspective bands — Finance, Business, Internal Business Process, Learning and
 Growth — each holding objectives and their initiatives.
 
-**Horizon** in the masthead is the year switcher: FY2026 and FY2027 are two separate
-maps and one is shown at a time. It defaults to FY2027, and the heading tracks the
-selection. Switching is a view change only — nothing is written.
+The masthead carries **SBU** (fixed at `CORP`) and **Year**. Year is the switcher:
+FY2026 and FY2027 are two separate maps and one is shown at a time. It defaults to
+FY2027, and the heading tracks the selection. Switching is a view change only —
+nothing is written.
 
 On FY2026 each objective offers *Copy to 2027 →*, and each band a *Copy all to 2027 →*,
 to carry work forward. Those actions do not appear on FY2027, which has nothing to copy
@@ -56,8 +57,20 @@ The map state lives in a single Supabase row and is shared by everyone who opens
 |---|---|
 | Project | `megawide-strategy-map` (`bshdkeuvovulcixupwys`) |
 | Table | `public.strategy_map` |
-| Row | `id = 'default'` |
+| Row | `id` = the SBU code, currently `CORP` |
 | Payload | `years jsonb` |
+
+**Saves are scoped to the selected SBU and year.** Writing goes through
+`cloudSaveYear()`, which re-reads the row and replaces only the lane for the year on
+screen. Sending the whole object back would let someone editing FY2027 overwrite FY2026
+with whatever stale copy their browser was holding — last write wins, silently. Reset is
+scoped the same way, for the same reason.
+
+Adding another SBU means adding a row with that code and letting the page pick it; the
+storage layer already keys on it.
+
+The old pre-SBU row `id = 'default'` is migrated from once on first load and then left
+alone, so it remains as a point-in-time backup.
 
 The `years` payload mirrors the app's state exactly:
 

@@ -8,7 +8,7 @@
 <!-- ?v= busts the browser cache. GitHub Pages serves assets with
      Cache-Control: max-age=600 and its headers can't be configured, so
      without this a deploy can be invisible for ten minutes. Bump on release. -->
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 
@@ -20,13 +20,13 @@
       <h1 class="sm-title" id="page-title">Strategy Map 2027</h1>
     </div>
     <div class="sm-meta">
-      <label class="sm-meta-k" for="horizon">Horizon</label>
-      <select class="sm-horizon" id="horizon">
+      <span class="sm-meta-k">SBU</span>
+      <span class="sm-meta-v" id="sbu">CORP</span>
+      <label class="sm-meta-k" for="year">Year</label>
+      <select class="sm-year" id="year">
         <option value="prev">FY2026</option>
         <option value="curr">FY2027</option>
       </select>
-      <span class="sm-meta-k">Owner</span>
-      <span class="sm-meta-v">Office of the CEO</span>
     </div>
   </header>
 
@@ -56,6 +56,6 @@
 
 </main>
 
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
