@@ -246,6 +246,34 @@ textarea.sm-in { overflow: hidden; min-height: 1.2em; }
 .sm-addslot:hover { border-color: var(--color-accent); color: var(--color-accent-700); }
 
 /* ==========================================================================
+   Confirmation modal
+   ========================================================================== */
+
+.sm-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  border: 2px solid var(--color-text);
+  border-radius: 0;
+  background: #fff;
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+.sm-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-neutral-900) 55%, transparent);
+}
+.sm-dialog-inner { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.sm-dialog-title {
+  margin: 0; font-family: var(--font-heading);
+  font-size: 18px; font-weight: 800; letter-spacing: -0.01em;
+}
+.sm-dialog-body {
+  margin: 0; font-size: 14px; line-height: 1.45; color: var(--color-neutral-700);
+}
+.sm-dialog-actions {
+  display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px;
+}
+
+/* ==========================================================================
    Responsive
    ========================================================================== */
 
@@ -288,6 +316,8 @@ textarea.sm-in { overflow: hidden; min-height: 1.2em; }
   /* one objective per row */
   .sm-cards { grid-template-columns: 1fr; gap: 12px; }
   .sm-card, .sm-addslot { min-height: 76px; }
+
+  .sm-dialog-actions .sm-btn { flex: 1 1 0; min-height: 44px; }
 }
 
 @media (max-width: 520px) {

@@ -284,7 +284,19 @@ function renderCard(cell, key, bi, ci) {
       h('button', {
         type: 'button', class: 'sm-x sm-noprint',
         'aria-label': 'Delete objective', title: 'Delete objective',
-        onclick: () => mutate(y => { y[key][bi].splice(ci, 1); })
+        onclick: () => {
+          const name = (cell.title || '').trim();
+          const n = cell.items.length;
+          confirmAction({
+            title: 'Delete objective?',
+            body: (name ? '“' + name + '”' : 'This untitled objective')
+                + (n ? ' and its ' + n + ' initiative' + (n === 1 ? '' : 's') : '')
+                + ' will be removed from FY' + YEAR_OF[key] + '. This cannot be undone.',
+            confirmLabel: 'Delete'
+          }).then(ok => {
+            if (ok) mutate(y => { y[key][bi].splice(ci, 1); });
+          });
+        }
       }, '×')
     ),
 
@@ -342,6 +354,61 @@ function paintToolbar() {
 }
 
 /* ==========================================================================
+   Confirmation modal
+   ========================================================================== */
+
+/* Resolves true only when the confirm button is pressed; Cancel, Esc and a
+   backdrop click all resolve false. Uses the platform <dialog>, so focus
+   trapping and Esc handling are not reimplemented here. */
+function confirmAction(opts) {
+  return new Promise(resolve => {
+    const dlg = byId('confirm');
+    const ok = byId('confirm-ok');
+    const cancel = byId('confirm-cancel');
+
+    byId('confirm-title').textContent = opts.title;
+    byId('confirm-body').textContent = opts.body;
+    ok.textContent = opts.confirmLabel;
+
+    let settled = false;
+    function finish(value) {
+      if (settled) return;
+      settled = true;
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+      dlg.removeEventListener('close', onClose);
+      dlg.removeEventListener('click', onBackdrop);
+      dlg.removeEventListener('keydown', onKeydown);
+      if (dlg.open) dlg.close();
+      resolve(value);
+    }
+    function onOk() { finish(true); }
+    function onCancel() { finish(false); }
+    function onClose() { finish(false); }
+    // The dialog itself carries no padding and its content lives in
+    // .sm-dialog-inner, so a click whose target is the dialog is a click
+    // that landed on the backdrop.
+    function onBackdrop(e) { if (e.target === dlg) finish(false); }
+    // Esc is normally dismissed by the UA, which fires `cancel` then `close`.
+    // Handling it directly too means dismissal does not depend on that: some
+    // embedded webviews deliver the keydown without running the UA behaviour.
+    // finish() is idempotent, so both routes firing is harmless.
+    function onKeydown(e) {
+      if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    }
+
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+    dlg.addEventListener('close', onClose);
+    dlg.addEventListener('click', onBackdrop);
+    dlg.addEventListener('keydown', onKeydown);
+
+    dlg.showModal();
+    cancel.focus();   // never make the destructive button the default
+  });
+}
+
+/* ==========================================================================
    Toolbar
    ========================================================================== */
 
@@ -353,13 +420,20 @@ byId('year').addEventListener('change', e => {
 
 byId('btn-reset').addEventListener('click', () => {
   const year = YEAR_OF[state.year];
-  if (!window.confirm('Reset FY' + year + ' to the starting template? Entries for FY' + year + ' will be lost.')) return;
-  // Scoped to the selected year to match what Save writes. Clearing both
-  // years would only persist half of it and leave the page out of step
-  // with the stored row.
-  state.years[state.year] = emptyYears()[state.year];
-  persist();
-  render();
+  confirmAction({
+    title: 'Reset FY' + year + '?',
+    body: 'Every objective and initiative in FY' + year + ' will be replaced by the '
+        + 'starting template. The other year is not affected. This cannot be undone.',
+    confirmLabel: 'Reset'
+  }).then(ok => {
+    if (!ok) return;
+    // Scoped to the selected year to match what Save writes. Clearing both
+    // years would only persist half of it and leave the page out of step
+    // with the stored row.
+    state.years[state.year] = emptyYears()[state.year];
+    persist();
+    render();
+  });
 });
 
 // Save flushes past the debounce and writes immediately — still only the

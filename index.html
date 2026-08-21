@@ -8,7 +8,7 @@
 <!-- ?v= busts the browser cache. GitHub Pages serves assets with
      Cache-Control: max-age=600 and its headers can't be configured, so
      without this a deploy can be invisible for ten minutes. Bump on release. -->
-<link rel="stylesheet" href="styles.css?v=4">
+<link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 
@@ -56,6 +56,19 @@
 
 </main>
 
-<script src="app.js?v=4"></script>
+<!-- Shared confirmation modal. Native <dialog> so Esc, focus trapping and the
+     backdrop come from the platform rather than being reimplemented. -->
+<dialog id="confirm" class="sm-dialog" aria-labelledby="confirm-title">
+  <div class="sm-dialog-inner">
+    <h2 class="sm-dialog-title" id="confirm-title"></h2>
+    <p class="sm-dialog-body" id="confirm-body"></p>
+    <div class="sm-dialog-actions">
+      <button type="button" class="sm-btn sm-btn--quiet" id="confirm-cancel">Cancel</button>
+      <button type="button" class="sm-btn sm-btn--primary" id="confirm-ok"></button>
+    </div>
+  </div>
+</dialog>
+
+<script src="app.js?v=5"></script>
 </body>
 </html>
