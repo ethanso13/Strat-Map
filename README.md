@@ -7,20 +7,21 @@ Four perspective bands — Finance, Business, Internal Business Process, Learnin
 Growth — each holding objectives and measures for the previous and current fiscal year.
 
 The previous year (2026) is **hidden by default**; use the *Show 2026* button to bring
-it back for side-by-side comparison. The toggle is view-only and is not persisted.
+it back for side-by-side comparison. That toggle is view-only and is not persisted.
 
-## Layout
+## Files
 
-The desktop design is a fixed 1440px canvas whose containers carry inline styles, so
-the responsive rules override them with `!important`. Two breakpoints:
+Plain static files. No build step, no framework, no dependencies — open `index.html`
+and it runs.
 
-- **≤ 1180px** — the fixed width relaxes to fill the viewport.
-- **≤ 880px** — the two year lanes stack vertically, band labels rotate from vertical
-  to horizontal and sit above their cards, the 46px label gutter collapses, the
-  toolbar wraps into full-width 40px touch targets, and objectives go one per row.
+| File | What's in it |
+|---|---|
+| `index.html` | Page shell: masthead, toolbar, footer. Bands are rendered by `app.js` into `#bands`. |
+| `styles.css` | Design tokens, layout, responsive rules, print rules. |
+| `app.js` | State, Supabase sync, rendering, toolbar wiring. |
+| `assets/` | Archivo font subsets (3 × woff2) and the Megawide logo. |
 
-Verified with no horizontal overflow at 375px, 768px, and 1440px; the 1440px layout is
-unchanged from the original design.
+Edit any of them directly and push — GitHub Pages redeploys automatically.
 
 ## How data is stored
 
@@ -31,12 +32,30 @@ The map state lives in a single Supabase row and is shared by everyone who opens
 | Project | `megawide-strategy-map` (`bshdkeuvovulcixupwys`) |
 | Table | `public.strategy_map` |
 | Row | `id = 'default'` |
-| Payload | `years jsonb` — mirrors the app's `{ prev: [...], curr: [...] }` state |
+| Payload | `years jsonb` |
 
-`localStorage` (`megawide-strategy-map-v2`) is kept as an offline cache: the page paints
-from it immediately on load, then reconciles against Supabase, which is the source of
-truth. If the network is unavailable the map still works and the Save button reports
-*"Offline — saved locally."* Edits are debounced ~700 ms before being written.
+The `years` payload mirrors the app's state exactly:
+
+```
+years = { prev: Band[], curr: Band[] }
+Band  = Cell[]                          // one entry per perspective band
+Cell  = { title: string, items: Item[] }
+Item  = { text: string, target: string }
+```
+
+`localStorage` (`megawide-strategy-map-v2`) is an offline cache: the page paints from it
+immediately, then reconciles against Supabase, which is the source of truth. With no
+network the map still works and the Save button reads *"Offline — saved locally."*
+Edits are debounced ~700 ms; the Save button flushes immediately.
+
+Text edits deliberately do **not** trigger a re-render, so the caret stays put while
+typing. Only structural changes (add, delete, copy, toggle, reset) re-render.
+
+### Known gap
+
+`Item.target` is loaded, copied and saved but never displayed — the original design had
+no field for it. Existing values (NIAT = "1.2 Billion") are preserved rather than
+dropped. Add an input in `renderCard()` if you want it surfaced.
 
 ## ⚠️ Access is currently unrestricted
 
@@ -51,16 +70,28 @@ public can update strategy map  — UPDATE  using (true)
 public can insert strategy map  — INSERT  with check (true)
 ```
 
-**Anyone who finds the URL can read and overwrite this strategy map.** There is no
-edit history, so an overwrite is not recoverable from the app.
+**Anyone who finds the URL can read and overwrite this strategy map.** There is no edit
+history, so an overwrite is not recoverable from the app.
 
-To lock it down later, either tighten the policies to `authenticated` and add Supabase
-Auth, or drop the `UPDATE`/`INSERT` policies to make the page read-only.
+To lock it down, either tighten the policies to `authenticated` and add Supabase Auth,
+or drop the `UPDATE`/`INSERT` policies to make the page read-only.
 
-## Editing the page
+## Layout
 
-`index.html` is a self-contained design-canvas bundle. The app document is stored as a
-JSON-encoded string on line 382, inside `<script type="__bundler/template">`, with
-fonts and images base64-embedded on line 370. To change the app logic, decode that
-string, edit it, then re-encode it — escaping the slash in every `</` as `/` so
-the payload cannot terminate the enclosing `<script>` tag.
+The desktop design is a 1440px canvas. Two breakpoints:
+
+- **≤ 1180px** — the fixed width relaxes to fill the viewport.
+- **≤ 880px** — the year lanes stack, band labels rotate from vertical to horizontal
+  and sit above their cards, the 46px label gutter collapses, the toolbar wraps into
+  full-width 40px touch targets, and objectives go one per row.
+
+Verified with no horizontal overflow at 375px, 768px, and 1440px.
+
+## History
+
+This page began as a single 353KB Claude Design canvas export — one `index.html` with
+the app JSON-encoded onto a single line, plus React, a proprietary template runtime
+(`sc-for` / `{{ }}` / `DCLogic`), and base64 fonts inlined. It was unpacked into the
+plain files above; React and the template runtime were dropped entirely.
+
+The original bundle is preserved in git history at commit `161435c`.
