@@ -93,25 +93,12 @@ function cloudSave(years) {
 
 const state = {
   years: emptyYears(),
-  showPrev: false,     // 2026 starts hidden; the toggle is view-only
+  year: 'curr',        // horizon on screen: 'prev' (2026) | 'curr' (2027)
   syncState: 'idle',   // idle | loading | saving | synced | offline
   justSaved: false
 };
 
-/* Eye / eye-off for the 2026 toggle. Static markup, no user data. */
-const ICON_EYE =
-  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
-  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>' +
-  '<circle cx="12" cy="12" r="3"></circle></svg>';
-
-const ICON_EYE_OFF =
-  '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
-  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-  '<path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a18.5 18.5 0 0 1-2.16 3.19"></path>' +
-  '<path d="M6.61 6.61A18.5 18.5 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 4.24-1.02"></path>' +
-  '<path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"></path>' +
-  '<line x1="2" y1="2" x2="22" y2="22"></line></svg>';
+const YEAR_OF = { prev: PREV_YEAR, curr: CURR_YEAR };
 
 let cloudTimer = null;
 let savedTimer = null;
@@ -177,31 +164,31 @@ const byId = id => document.getElementById(id);
 
 function render() {
   bandsEl.replaceChildren(...DEFAULT_BANDS.map((band, bi) => renderBand(band, bi)));
+  paintHorizon();
   paintToolbar();
 }
 
 function renderBand(band, bi) {
-  const laneKeys = state.showPrev ? ['prev', 'curr'] : ['curr'];
   return h('section', { class: 'sm-bandrow' },
     h('div', { class: 'sm-band' },
       h('div', { class: 'sm-bandlabel' },
         h('h2', { class: 'sm-bandname' }, band.name)),
-      h('div', { class: 'sm-lanes' }, laneKeys.map(key => renderLane(key, bi)))
+      h('div', { class: 'sm-lanes' }, renderLane(state.year, bi))
     )
   );
 }
 
 function renderLane(key, bi) {
-  const isPrev = key === 'prev';
   const cells = state.years[key][bi] || [];
-  const canCopyAll = isPrev && cells.length > 0;
+  // Only 2026 can be copied forward, and only when it has something in it.
+  const canCopyAll = key === 'prev' && cells.length > 0;
 
   return h('div', { class: 'sm-lane' },
     h('div', { class: 'sm-lane-col' },
-      h('div', { class: 'sm-lane-head' },
-        h('span', { class: 'sm-lane-label' },
-          isPrev ? PREV_YEAR + ' — previous' : CURR_YEAR + ' — current'),
-        canCopyAll && h('button', {
+      // The head exists purely to hold the copy-forward action, so it is
+      // omitted entirely rather than leaving an empty strip above the cards.
+      canCopyAll && h('div', { class: 'sm-lane-head' },
+        h('button', {
           type: 'button', class: 'sm-linkbtn sm-noprint',
           onclick: () => mutate(y => { y.prev[bi].forEach(c => y.curr[bi].push(clone(c))); })
         }, 'Copy all to ' + CURR_YEAR + ' →')
@@ -213,8 +200,7 @@ function renderLane(key, bi) {
           onclick: () => mutate(y => { y[key][bi].push({ title: '', items: [] }); })
         }, '+ Add objective')
       )
-    ),
-    isPrev && h('div', { class: 'sm-lane-sep' })
+    )
   );
 }
 
@@ -236,11 +222,11 @@ function renderCard(cell, key, bi, ci) {
       }, '×')
     ),
 
-    cell.items.length > 0 && h('div', { class: 'sm-measures' },
-      h('div', { class: 'sm-measures-label' }, 'Measure'),
-      cell.items.map((item, ii) => h('div', { class: 'sm-measure' },
+    cell.items.length > 0 && h('div', { class: 'sm-initiatives' },
+      h('div', { class: 'sm-initiatives-label' }, 'Initiative'),
+      cell.items.map((item, ii) => h('div', { class: 'sm-initiative' },
         h('textarea', {
-          class: 'sm-in', rows: 1, placeholder: 'Measure',
+          class: 'sm-in', rows: 1, placeholder: 'Initiative',
           value: item.text,
           oninput: e => {
             const v = e.target.value;
@@ -249,7 +235,7 @@ function renderCard(cell, key, bi, ci) {
         }),
         h('button', {
           type: 'button', class: 'sm-x sm-x--sm sm-noprint',
-          'aria-label': 'Delete measure', title: 'Delete measure',
+          'aria-label': 'Delete initiative', title: 'Delete initiative',
           onclick: () => mutate(y => { y[key][bi][ci].items.splice(ii, 1); })
         }, '×')
       ))
@@ -259,7 +245,7 @@ function renderCard(cell, key, bi, ci) {
       h('button', {
         type: 'button', class: 'sm-linkbtn sm-linkbtn--quiet',
         onclick: () => mutate(y => { y[key][bi][ci].items.push({ text: '', target: '' }); })
-      }, '+ Measure'),
+      }, '+ Initiative'),
       key === 'prev' && h('button', {
         type: 'button', class: 'sm-linkbtn', title: 'Copy this objective forward',
         onclick: () => mutate(y => { y.curr[bi].push(clone(y.prev[bi][ci])); })
@@ -270,13 +256,16 @@ function renderCard(cell, key, bi, ci) {
 
 /* Toolbar labels repaint on their own so a sync-state change mid-typing
    never triggers a full re-render (which would drop the caret). */
-function paintToolbar() {
-  const eye = byId('btn-toggle-prev');
-  const eyeLabel = (state.showPrev ? 'Hide ' : 'Show ') + PREV_YEAR;
-  eye.innerHTML = state.showPrev ? ICON_EYE_OFF : ICON_EYE;
-  eye.setAttribute('aria-label', eyeLabel);
-  eye.setAttribute('title', eyeLabel);
+/* The Horizon dropdown is the year switcher, so the heading and tab title
+   follow it rather than sitting on a hard-coded year. */
+function paintHorizon() {
+  const year = YEAR_OF[state.year];
+  byId('horizon').value = state.year;
+  byId('page-title').textContent = 'Strategy Map ' + year;
+  document.title = 'Strategy Map ' + year + ' — Megawide';
+}
 
+function paintToolbar() {
   byId('btn-save').textContent =
     (state.syncState === 'saving' || state.syncState === 'loading') ? 'Syncing…' :
     state.syncState === 'offline' ? 'Offline — saved locally' :
@@ -287,8 +276,9 @@ function paintToolbar() {
    Toolbar
    ========================================================================== */
 
-byId('btn-toggle-prev').addEventListener('click', () => {
-  state.showPrev = !state.showPrev;
+// Switching horizon is a view change only — nothing is written.
+byId('horizon').addEventListener('change', e => {
+  state.year = e.target.value === 'prev' ? 'prev' : 'curr';
   render();
 });
 

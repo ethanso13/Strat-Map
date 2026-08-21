@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Strategy Map 2027 — Megawide</title>
+<title>Strategy Map — Megawide</title>
 <link rel="icon" href="assets/megawide-logo.png">
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -13,12 +13,15 @@
 
   <header class="sm-head">
     <div class="sm-headline">
-      <div class="sm-eyebrow">Corporate — Office of the CEO</div>
-      <h1 class="sm-title">Strategy Map 2027</h1>
+      <div class="sm-eyebrow">Megawide</div>
+      <h1 class="sm-title" id="page-title">Strategy Map 2027</h1>
     </div>
     <div class="sm-meta">
-      <span class="sm-meta-k">Horizon</span>
-      <span class="sm-meta-v">FY2027</span>
+      <label class="sm-meta-k" for="horizon">Horizon</label>
+      <select class="sm-horizon" id="horizon">
+        <option value="prev">FY2026</option>
+        <option value="curr">FY2027</option>
+      </select>
       <span class="sm-meta-k">Owner</span>
       <span class="sm-meta-v">Office of the CEO</span>
     </div>
@@ -29,10 +32,7 @@
   <div class="sm-rail">
     <div class="sm-rail-gutter"></div>
     <div class="sm-rail-body">
-      <span class="sm-sectionlabel">Objectives</span>
       <div class="sm-tools sm-noprint">
-        <!-- icon label + aria-label are set by app.js so they track state -->
-        <button type="button" id="btn-toggle-prev" class="sm-btn sm-btn--icon sm-btn--quiet"></button>
         <button type="button" id="btn-reset" class="sm-btn sm-btn--icon sm-btn--quiet"
                 aria-label="Reset map to starting template" title="Reset map to starting template">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"

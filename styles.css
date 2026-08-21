@@ -100,7 +100,7 @@ body {
   font-weight: 700; letter-spacing: -0.02em; margin: 12px 0 0;
 }
 .sm-meta {
-  display: grid; grid-template-columns: auto auto;
+  display: grid; grid-template-columns: auto auto; align-items: center;
   gap: 6px 28px; font-size: 13px; padding-bottom: 6px;
 }
 .sm-meta-k {
@@ -109,6 +109,16 @@ body {
 }
 .sm-meta-v { font-weight: 600; }
 
+/* Horizon is the year switcher — 2026 and 2027 are separate maps. */
+.sm-horizon {
+  font-family: var(--font-body); font-size: 13px; font-weight: 600;
+  color: inherit; background: transparent;
+  border: 2px solid var(--color-text); border-radius: 0;
+  padding: 3px 6px; cursor: pointer;
+}
+.sm-horizon:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.sm-horizon:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
 /* — toolbar row. The 46px gutter lines the content up with the band cards,
      which are inset by the vertical band label. — */
 .sm-rail {
@@ -116,11 +126,7 @@ body {
   padding: 14px 0 10px; align-items: center;
 }
 .sm-rail-body {
-  display: flex; align-items: center; justify-content: space-between; gap: 20px;
-}
-.sm-sectionlabel {
-  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
-  font-weight: 700; color: var(--color-neutral-600);
+  display: flex; align-items: center; justify-content: flex-end; gap: 20px;
 }
 .sm-tools { display: flex; gap: 10px; }
 
@@ -163,14 +169,9 @@ body {
 .sm-lanes { display: flex; gap: 28px; align-items: stretch; }
 .sm-lane { flex: 1 1 0; min-width: 0; display: flex; gap: 28px; }
 .sm-lane-col { flex: 1 1 0; min-width: 0; }
-.sm-lane-sep { width: 2px; background: var(--color-divider); align-self: stretch; }
 .sm-lane-head {
-  display: flex; align-items: baseline; justify-content: space-between;
+  display: flex; align-items: baseline; justify-content: flex-end;
   gap: 12px; padding-bottom: 12px;
-}
-.sm-lane-label {
-  font-family: var(--font-heading); font-size: 13px; font-weight: 700;
-  letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-neutral-600);
 }
 
 /* — text-only buttons — */
@@ -214,17 +215,17 @@ textarea.sm-in { field-sizing: content; overflow: hidden; min-height: 1.2em; }
 .sm-x--sm { font-size: 13px; padding: 0; }
 .sm-x:hover { color: var(--color-accent); }
 
-.sm-measures {
+.sm-initiatives {
   padding-top: 10px; border-top: 2px solid var(--color-divider);
   display: flex; flex-direction: column; gap: 5px;
   font-size: 13px; line-height: 1.35; color: var(--color-neutral-700);
 }
-.sm-measures-label {
+.sm-initiatives-label {
   font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
   font-weight: 700; color: var(--color-neutral-500);
 }
-.sm-measure { display: flex; gap: 8px; align-items: flex-start; }
-.sm-measure .sm-in { flex: 1 1 auto; line-height: 1.35; }
+.sm-initiative { display: flex; gap: 8px; align-items: flex-start; }
+.sm-initiative .sm-in { flex: 1 1 auto; line-height: 1.35; }
 
 .sm-card-actions {
   margin-top: auto; display: flex; gap: 14px; align-items: center; padding-top: 6px;
@@ -273,10 +274,11 @@ textarea.sm-in { field-sizing: content; overflow: hidden; min-height: 1.2em; }
   .sm-tools .sm-btn--icon { flex: 0 0 44px; width: 44px; height: 44px; }
   #btn-save { flex: 1 1 auto; }
 
-  /* iOS zooms the whole page when you focus an input smaller than 16px.
-     The objective title is already 17px; measures inherit 13px, so lift
-     just those. */
-  .sm-measure .sm-in { font-size: 16px; }
+  /* iOS zooms the whole page when you focus a control smaller than 16px.
+     The objective title is already 17px; initiatives inherit 13px and the
+     horizon select is 13px, so lift just those. */
+  .sm-initiative .sm-in { font-size: 16px; }
+  .sm-horizon { font-size: 16px; }
 
   /* band label turns horizontal and sits above its cards */
   .sm-band { grid-template-columns: 1fr; gap: 12px; padding: 18px 0 24px; }
@@ -284,10 +286,6 @@ textarea.sm-in { field-sizing: content; overflow: hidden; min-height: 1.2em; }
     writing-mode: horizontal-tb; transform: none; white-space: normal;
     width: 100%; padding: 9px 12px; font-size: 13px;
   }
-
-  /* year lanes stack, and the divider between them goes horizontal */
-  .sm-lanes, .sm-lane { flex-direction: column; gap: 18px; }
-  .sm-lane-sep { width: auto; height: 2px; }
 
   /* one objective per row */
   .sm-cards { grid-template-columns: 1fr; gap: 12px; }

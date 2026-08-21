@@ -4,19 +4,26 @@ Interactive corporate strategy map (Office of the CEO), published at
 **https://ethanso13.github.io/Strat-Map/**
 
 Four perspective bands — Finance, Business, Internal Business Process, Learning and
-Growth — each holding objectives and measures for the previous and current fiscal year.
+Growth — each holding objectives and their initiatives.
 
-The map is always editable — there is no lock mode. The toolbar is three controls:
+**Horizon** in the masthead is the year switcher: FY2026 and FY2027 are two separate
+maps and one is shown at a time. It defaults to FY2027, and the heading tracks the
+selection. Switching is a view change only — nothing is written.
+
+On FY2026 each objective offers *Copy to 2027 →*, and each band a *Copy all to 2027 →*,
+to carry work forward. Those actions do not appear on FY2027, which has nothing to copy
+into.
+
+The map is always editable — there is no lock mode. Two controls sit on the right:
 
 | Control | Does |
 |---|---|
-| 👁 eye icon | Show / hide the 2026 comparison lane. View-only, not persisted. |
 | ↺ reset icon | Restore the starting template (asks first). |
 | **Save** | Flush to Supabase immediately, and report sync state. |
 
-The previous year (2026) is **hidden by default**. There is no Export PDF button —
-the print stylesheet is still in place, so the browser's own Print / Save-as-PDF
-(Ctrl-P) produces a clean A4 landscape sheet with the editing controls stripped out.
+There is no Export PDF button — the print stylesheet is still in place, so the browser's
+own Print / Save-as-PDF (Ctrl-P) produces a clean A4 landscape sheet with the editing
+controls stripped out.
 
 ## Files
 
@@ -46,11 +53,14 @@ The map state lives in a single Supabase row and is shared by everyone who opens
 The `years` payload mirrors the app's state exactly:
 
 ```
-years = { prev: Band[], curr: Band[] }
+years = { prev: Band[], curr: Band[] }  // prev = FY2026, curr = FY2027
 Band  = Cell[]                          // one entry per perspective band
 Cell  = { title: string, items: Item[] }
-Item  = { text: string, target: string }
+Item  = { text: string, target: string }   // an initiative
 ```
+
+The stored keys are deliberately left as `prev` / `curr` / `items` — renaming them in
+the UI is free, but renaming them here would orphan every row already saved.
 
 `localStorage` (`megawide-strategy-map-v2`) is an offline cache: the page paints from it
 immediately, then reconciles against Supabase, which is the source of truth. With no
@@ -90,14 +100,14 @@ or drop the `UPDATE`/`INSERT` policies to make the page read-only.
 The desktop design is a 1440px canvas. Two breakpoints:
 
 - **≤ 1180px** — the fixed width relaxes to fill the viewport.
-- **≤ 880px** — the year lanes stack, band labels rotate from vertical to horizontal
-  and sit above their cards, the 46px label gutter collapses, the toolbar becomes two
-  44px icon buttons plus a full-width Save, and objectives go one per row.
+- **≤ 880px** — the masthead stacks, band labels rotate from vertical to horizontal and
+  sit above their cards, the 46px label gutter collapses, the toolbar becomes a 44px
+  reset icon plus a full-width Save, and objectives go one per row.
 
-  Measure fields are also lifted to 16px here. iOS zooms the whole page when you focus
-  an input smaller than 16px, which made editing on a phone jump around; raising the
-  font size fixes it without `maximum-scale=1`, which would have disabled pinch-zoom
-  for everyone.
+  Initiative fields and the Horizon dropdown are also lifted to 16px here. iOS zooms the
+  whole page when you focus a control smaller than 16px, which made editing on a phone
+  jump around; raising the font size fixes it without `maximum-scale=1`, which would
+  have disabled pinch-zoom for everyone.
 
 Verified with no horizontal overflow at 375px, 768px, and 1440px.
 
