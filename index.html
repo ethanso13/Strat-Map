@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Strategy Map — Megawide</title>
+
+<!-- Installable to the home screen, where it launches with no URL bar and no
+     bottom chin. A normal tab visit always keeps the browser's own chrome —
+     no site can remove that. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#ec3013">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Strategy Map">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+
 <!-- ?v= busts the browser cache. GitHub Pages serves assets with
      Cache-Control: max-age=600 and its headers can't be configured, so
      without this a deploy can be invisible for ten minutes. Bump on release. -->

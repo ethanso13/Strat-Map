@@ -44,7 +44,8 @@ and it runs.
 | `index.html` | Page shell: masthead, toolbar, footer. Bands are rendered by `app.js` into `#bands`. |
 | `styles.css` | Design tokens, layout, responsive rules, print rules. |
 | `app.js` | State, Supabase sync, rendering, toolbar wiring. |
-| `assets/` | Archivo font subsets (3 × woff2). |
+| `manifest.webmanifest` | Makes the page installable to a phone home screen. |
+| `assets/` | Archivo font subsets (3 × woff2) and the home-screen icons. |
 
 Edit any of them directly and push — GitHub Pages redeploys automatically.
 
@@ -134,6 +135,21 @@ history, so an overwrite is not recoverable from the app.
 
 To lock it down, either tighten the policies to `authenticated` and add Supabase Auth,
 or drop the `UPDATE`/`INSERT` policies to make the page read-only.
+
+## Running it fullscreen on a phone
+
+A normal tab visit always keeps the browser's URL bar and bottom chin — no site can
+remove those. Installing it to the home screen does: it then launches standalone, with
+no browser chrome at all.
+
+- **iOS Safari** — Share → *Add to Home Screen*. Must be Safari; Chrome on iOS cannot
+  install.
+- **Android Chrome** — ⋮ menu → *Install app* (or *Add to Home screen*).
+
+Both are manual, per person, and cannot be triggered from the page. There is no service
+worker, so the app still needs a network connection on first load of a session; the
+localStorage cache covers it after that. Adding one would enable an automatic install
+prompt on Android, at the cost of another layer that can serve stale code.
 
 ## Layout
 
