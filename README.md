@@ -6,6 +6,22 @@ Interactive corporate strategy map (Office of the CEO), published at
 Four perspective bands — Finance, Business, Internal Business Process, Learning and
 Growth — each holding objectives and measures for the previous and current fiscal year.
 
+The previous year (2026) is **hidden by default**; use the *Show 2026* button to bring
+it back for side-by-side comparison. The toggle is view-only and is not persisted.
+
+## Layout
+
+The desktop design is a fixed 1440px canvas whose containers carry inline styles, so
+the responsive rules override them with `!important`. Two breakpoints:
+
+- **≤ 1180px** — the fixed width relaxes to fill the viewport.
+- **≤ 880px** — the two year lanes stack vertically, band labels rotate from vertical
+  to horizontal and sit above their cards, the 46px label gutter collapses, the
+  toolbar wraps into full-width 40px touch targets, and objectives go one per row.
+
+Verified with no horizontal overflow at 375px, 768px, and 1440px; the 1440px layout is
+unchanged from the original design.
+
 ## How data is stored
 
 The map state lives in a single Supabase row and is shared by everyone who opens the page.
