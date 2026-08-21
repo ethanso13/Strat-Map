@@ -35,7 +35,7 @@ and it runs.
 | `index.html` | Page shell: masthead, toolbar, footer. Bands are rendered by `app.js` into `#bands`. |
 | `styles.css` | Design tokens, layout, responsive rules, print rules. |
 | `app.js` | State, Supabase sync, rendering, toolbar wiring. |
-| `assets/` | Archivo font subsets (3 × woff2) and the Megawide logo. |
+| `assets/` | Archivo font subsets (3 × woff2) and the Megawide logo, now used only as the favicon. |
 
 Edit any of them directly and push — GitHub Pages redeploys automatically.
 
@@ -78,6 +78,11 @@ Edits are debounced ~700 ms; the Save button flushes immediately.
 
 Text edits deliberately do **not** trigger a re-render, so the caret stays put while
 typing. Only structural changes (add, delete, copy, toggle, reset) re-render.
+
+Objective and initiative fields grow to fit their text via `autogrow()` in `app.js`,
+called on input and on every render. This replaces CSS `field-sizing: content`, which
+Chrome supports but Safari and iOS do not — there a long initiative was clipped by
+`overflow: hidden` instead of wrapping.
 
 ### Known gap
 

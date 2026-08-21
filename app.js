@@ -190,8 +190,18 @@ function h(tag, props, ...kids) {
 const bandsEl = document.getElementById('bands');
 const byId = id => document.getElementById(id);
 
+/* Size a textarea to its content. Replaces CSS field-sizing:content, which
+   Chrome supports and Safari/iOS does not — there a long initiative would be
+   clipped by overflow:hidden rather than wrapping onto a second line.
+   Must run after the node is in the document, or scrollHeight reads 0. */
+function autogrow(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+}
+
 function render() {
   bandsEl.replaceChildren(...DEFAULT_BANDS.map((band, bi) => renderBand(band, bi)));
+  bandsEl.querySelectorAll('textarea').forEach(autogrow);
   paintHorizon();
   paintToolbar();
 }
@@ -236,9 +246,10 @@ function renderCard(cell, key, bi, ci) {
   return h('article', { class: 'sm-card' },
     h('div', { class: 'sm-card-head' },
       h('textarea', {
-        class: 'sm-in sm-title-in', rows: 2, placeholder: 'Objective',
+        class: 'sm-in sm-title-in', rows: 1, placeholder: 'Objective',
         value: cell.title,
         oninput: e => {
+          autogrow(e.target);
           const v = e.target.value;
           mutate(y => { y[key][bi][ci].title = v; }, false);
         }
@@ -257,6 +268,7 @@ function renderCard(cell, key, bi, ci) {
           class: 'sm-in', rows: 1, placeholder: 'Initiative',
           value: item.text,
           oninput: e => {
+            autogrow(e.target);
             const v = e.target.value;
             mutate(y => { y[key][bi][ci].items[ii].text = v; }, false);
           }

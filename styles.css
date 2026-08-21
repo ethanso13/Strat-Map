@@ -202,7 +202,10 @@ body {
   border: 0; padding: 0; width: 100%; resize: none; outline: none;
 }
 .sm-in:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-textarea.sm-in { field-sizing: content; overflow: hidden; min-height: 1.2em; }
+/* Height is driven by autogrow() in app.js rather than field-sizing:content,
+   which Safari and iOS do not support — there a rows="1" box with
+   overflow:hidden clips a wrapped initiative instead of growing to fit. */
+textarea.sm-in { overflow: hidden; min-height: 1.2em; }
 .sm-title-in {
   font-family: var(--font-heading); font-size: 17px; line-height: 1.18;
   font-weight: 700; letter-spacing: -0.01em;
@@ -225,7 +228,10 @@ textarea.sm-in { field-sizing: content; overflow: hidden; min-height: 1.2em; }
   font-weight: 700; color: var(--color-neutral-500);
 }
 .sm-initiative { display: flex; gap: 8px; align-items: flex-start; }
-.sm-initiative .sm-in { flex: 1 1 auto; line-height: 1.35; }
+/* min-width:0 lets the field shrink below its content width, which is what
+   allows a long initiative to wrap onto a second line instead of forcing
+   the flex row wider. */
+.sm-initiative .sm-in { flex: 1 1 auto; min-width: 0; line-height: 1.35; }
 
 .sm-card-actions {
   margin-top: auto; display: flex; gap: 14px; align-items: center; padding-top: 6px;
@@ -238,14 +244,6 @@ textarea.sm-in { field-sizing: content; overflow: hidden; min-height: 1.2em; }
   font-weight: 700; color: var(--color-neutral-500); text-align: left;
 }
 .sm-addslot:hover { border-color: var(--color-accent); color: var(--color-accent-700); }
-
-/* — footer — */
-.sm-footer {
-  margin-top: 24px; padding: 12px 20px; background: #fff;
-  display: flex; align-items: center; justify-content: space-between; gap: 32px;
-}
-.sm-logo-wrap { background: #fff; padding: 8px 14px; display: flex; align-items: center; }
-.sm-logo { display: block; height: 30px; width: auto; }
 
 /* ==========================================================================
    Responsive
