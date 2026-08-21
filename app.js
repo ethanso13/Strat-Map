@@ -53,6 +53,33 @@ const emptyYears = () => ({
   curr: DEFAULT_BANDS.map(() => [])
 });
 
+/* Coerce anything that came out of storage into a well-formed years object.
+   Everything persisted is untrusted: a cache written by an older version, a
+   half-written value, or a hand-edited row must never be able to throw during
+   render. It used to, and because that happened before the cloud load, the
+   page could not repair itself on reload. */
+function normalizeYears(raw) {
+  const lane = v => {
+    const arr = Array.isArray(v) ? v : [];
+    return DEFAULT_BANDS.map((_, i) => {
+      const cells = Array.isArray(arr[i]) ? arr[i] : [];
+      return cells
+        .filter(c => c && typeof c === 'object')
+        .map(c => ({
+          title: typeof c.title === 'string' ? c.title : '',
+          items: (Array.isArray(c.items) ? c.items : [])
+            .filter(it => it && typeof it === 'object')
+            .map(it => ({
+              text: typeof it.text === 'string' ? it.text : '',
+              target: typeof it.target === 'string' ? it.target : ''
+            }))
+        }));
+    });
+  };
+  const o = (raw && typeof raw === 'object') ? raw : {};
+  return { prev: lane(o.prev), curr: lane(o.curr) };
+}
+
 /* ==========================================================================
    Supabase — one row (id = 'default') holds the whole map
    ========================================================================== */
@@ -75,7 +102,8 @@ function cloudLoad() {
       if (!rows.length) return null;
       const y = rows[0].years;
       // the seeded row starts as {} — treat that as "nothing stored yet"
-      return (y && Array.isArray(y.prev) && Array.isArray(y.curr)) ? y : null;
+      if (!y || !Array.isArray(y.prev) || !Array.isArray(y.curr)) return null;
+      return normalizeYears(y);
     });
 }
 
@@ -179,7 +207,7 @@ function renderBand(band, bi) {
 }
 
 function renderLane(key, bi) {
-  const cells = state.years[key][bi] || [];
+  const cells = (state.years[key] || [])[bi] || [];
   // Only 2026 can be copied forward, and only when it has something in it.
   const canCopyAll = key === 'prev' && cells.length > 0;
 
@@ -311,16 +339,20 @@ byId('btn-save').addEventListener('click', () => {
   try {
     const saved = localStorage.getItem(STORE_KEY);
     if (saved) {
-      state.years = JSON.parse(saved);
+      state.years = normalizeYears(JSON.parse(saved));
     } else {
       const v1 = localStorage.getItem('megawide-strategy-map-v1');
       if (v1) {
         const bands = JSON.parse(v1);
-        state.years = { prev: bands.map(b => b.cells || []), curr: bands.map(() => []) };
+        state.years = normalizeYears({ prev: (bands || []).map(b => b && b.cells), curr: [] });
       }
     }
-  } catch (e) {}
-  render();
+  } catch (e) {
+    state.years = emptyYears();
+  }
+
+  // Never let the local paint stop step 2 — the cloud is what repairs a bad cache.
+  try { render(); } catch (e) { console.error('initial render failed', e); }
 
   // 2. Reconcile against the cloud, which is the source of truth.
   setSync('loading');
