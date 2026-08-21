@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Strategy Map — Megawide</title>
 <link rel="icon" href="assets/megawide-logo.png">
-<link rel="stylesheet" href="styles.css">
+<!-- ?v= busts the browser cache. GitHub Pages serves assets with
+     Cache-Control: max-age=600 and its headers can't be configured, so
+     without this a deploy can be invisible for ten minutes. Bump on release. -->
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 
@@ -59,6 +62,6 @@
 
 </main>
 
-<script src="app.js"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

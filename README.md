@@ -39,6 +39,15 @@ and it runs.
 
 Edit any of them directly and push — GitHub Pages redeploys automatically.
 
+**When you change `styles.css` or `app.js`, bump the `?v=` on its `<link>` / `<script>`
+in `index.html`.** GitHub Pages serves assets with `Cache-Control: max-age=600` and does
+not let you configure headers, so without a new URL a browser can keep serving the old
+file for ten minutes after a deploy — which looks exactly like the deploy failing.
+
+Anything read back from storage is treated as untrusted and passed through
+`normalizeYears()` before it reaches the renderer, so a stale or half-written cache
+degrades to an empty map rather than throwing.
+
 ## How data is stored
 
 The map state lives in a single Supabase row and is shared by everyone who opens the page.
