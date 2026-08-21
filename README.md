@@ -44,7 +44,7 @@ and it runs.
 | `index.html` | Page shell: masthead, toolbar, footer. Bands are rendered by `app.js` into `#bands`. |
 | `styles.css` | Design tokens, layout, responsive rules, print rules. |
 | `app.js` | State, Supabase sync, rendering, toolbar wiring. |
-| `assets/` | Archivo font subsets (3 × woff2) and the Megawide logo, now used only as the favicon. |
+| `assets/` | Archivo font subsets (3 × woff2). |
 
 Edit any of them directly and push — GitHub Pages redeploys automatically.
 
