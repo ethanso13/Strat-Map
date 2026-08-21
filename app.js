@@ -19,39 +19,20 @@ const PREV_YEAR = '2026';
 const CURR_YEAR = '2027';
 const STORE_KEY = 'megawide-strategy-map-v2';
 
-/* The four perspective bands. Only `name` drives the layout; `cells` is the
-   starting template used on first run and by Reset. */
-const DEFAULT_BANDS = [
-  { name: 'Finance', cells: [
-    { title: 'Net Income', items: [
-      { text: 'NIAT', target: '1.2 Billion' },
-      { text: 'Book Value', target: '' },
-      { text: 'Share Price', target: '' }
-    ] }
-  ] },
-  { name: 'Business', cells: [
-    { title: 'Capital Structure Management', items: [] }
-  ] },
-  { name: 'Internal Business Process', cells: [
-    { title: 'Engagement Plan', items: [] },
-    { title: 'Communications Plan', items: [] },
-    { title: 'Digitalization', items: [] },
-    { title: 'Policies and Procedures', items: [] }
-  ] },
-  { name: 'Learning and Growth', cells: [
-    { title: 'Org Development', items: [] },
-    { title: 'Leadership and Talent Development', items: [] },
-    { title: 'Culture Development', items: [] },
-    { title: 'Learning Curriculum', items: [] },
-    { title: 'Cadetship Program', items: [] }
-  ] }
-];
+/* Strategic business units. Each one is its own row, keyed by this code, and
+   holds its own FY2026 and FY2027 maps. */
+const SBUS = ['CORP', 'MCC', 'PCS', 'PTX', 'C2W', 'PH1'];
+const DEFAULT_SBU = 'CORP';
+const SBU_KEY = 'megawide-strategy-map-sbu';
+
+/* The four perspective bands, top to bottom. */
+const BANDS = ['Finance', 'Business', 'Internal Business Process', 'Learning and Growth'];
 
 const clone = v => JSON.parse(JSON.stringify(v));
-const emptyYears = () => ({
-  prev: DEFAULT_BANDS.map(b => clone(b.cells)),
-  curr: DEFAULT_BANDS.map(() => [])
-});
+
+/* A map with the four bands present but no objectives in them. Used for an
+   SBU that has nothing stored yet, and by Reset. */
+const blankYears = () => ({ prev: BANDS.map(() => []), curr: BANDS.map(() => []) });
 
 /* Coerce anything that came out of storage into a well-formed years object.
    Everything persisted is untrusted: a cache written by an older version, a
@@ -61,7 +42,7 @@ const emptyYears = () => ({
 function normalizeYears(raw) {
   const lane = v => {
     const arr = Array.isArray(v) ? v : [];
-    return DEFAULT_BANDS.map((_, i) => {
+    return BANDS.map((_, i) => {
       const cells = Array.isArray(arr[i]) ? arr[i] : [];
       return cells
         .filter(c => c && typeof c === 'object')
@@ -93,8 +74,7 @@ const SB_URL = 'https://bshdkeuvovulcixupwys.supabase.co';
 const SB_KEY = 'sb_publishable_-5B1hTP7hwIWW_5QkZ_Gvg_qtDXpsir';
 const SB_REST = SB_URL + '/rest/v1/strategy_map';
 
-const SBU = 'CORP';            // the row this page reads and writes
-const LEGACY_ROW = 'default';  // pre-SBU row: migrated from once, then left alone
+const LEGACY_ROW = 'default';  // pre-SBU row: CORP inherits from it once, then it is left alone
 
 const sbHeaders = extra => Object.assign({
   'apikey': SB_KEY,
@@ -120,22 +100,25 @@ function cloudPut(id, years) {
 }
 
 /* { years, migrated } — or null when nothing is stored for this SBU yet. */
-function cloudLoad() {
-  return cloudGet(SBU).then(y => {
+function cloudLoad(sbu) {
+  return cloudGet(sbu).then(y => {
     if (populated(y)) return { years: normalizeYears(y), migrated: false };
-    // first run on the SBU-keyed row: adopt the old shared row's contents.
-    // The old row is left untouched so it stays available as a backup.
+    // Only CORP inherits the old shared row — the other SBUs start empty
+    // rather than picking up CORP's objectives. The old row is left
+    // untouched so it stays available as a backup.
+    if (sbu !== DEFAULT_SBU) return null;
     return cloudGet(LEGACY_ROW).then(legacy =>
       populated(legacy) ? { years: normalizeYears(legacy), migrated: true } : null);
   });
 }
 
-/* Replace only `yearKey`, keeping whatever the server holds for the other. */
-function cloudSaveYear(yearKey, lane) {
-  return cloudGet(SBU).then(remote => {
+/* Replace only `yearKey` on `sbu`, keeping whatever the server holds for the
+   other year. */
+function cloudSaveYear(sbu, yearKey, lane) {
+  return cloudGet(sbu).then(remote => {
     const merged = normalizeYears(populated(remote) ? remote : {});
     merged[yearKey] = clone(lane);
-    return cloudPut(SBU, merged);
+    return cloudPut(sbu, merged);
   });
 }
 
@@ -144,8 +127,9 @@ function cloudSaveYear(yearKey, lane) {
    ========================================================================== */
 
 const state = {
-  years: emptyYears(),
+  sbu: DEFAULT_SBU,    // which SBU's map is on screen
   year: 'curr',        // year on screen: 'prev' (FY2026) | 'curr' (FY2027)
+  years: blankYears(),
   syncState: 'idle',   // idle | loading | saving | synced | offline
   justSaved: false
 };
@@ -154,25 +138,53 @@ const YEAR_OF = { prev: PREV_YEAR, curr: CURR_YEAR };
 
 let cloudTimer = null;
 let savedTimer = null;
+let pendingWrite = null;   // queued scoped write, kept so it can be flushed early
+
+const cacheKey = sbu => STORE_KEY + ':' + sbu;
 
 function cacheLocal() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(state.years)); } catch (e) {}
+  try { localStorage.setItem(cacheKey(state.sbu), JSON.stringify(state.years)); } catch (e) {}
+}
+
+function readCache(sbu) {
+  try {
+    let raw = localStorage.getItem(cacheKey(sbu));
+    // the pre-SBU cache held CORP's map under the bare key
+    if (!raw && sbu === DEFAULT_SBU) raw = localStorage.getItem(STORE_KEY);
+    return raw ? normalizeYears(JSON.parse(raw)) : null;
+  } catch (e) { return null; }
+}
+
+function schedule(fn) {
+  pendingWrite = fn;
+  clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(runPending, 700);
+}
+
+/* Run a queued write now. Called by the debounce, and by anything that would
+   otherwise strand it — switching SBU, or pressing Save. */
+function runPending() {
+  clearTimeout(cloudTimer);
+  const fn = pendingWrite;
+  pendingWrite = null;
+  if (!fn) return Promise.resolve();
+  return fn().then(() => setSync('synced')).catch(() => setSync('offline'));
 }
 
 /* Write locally at once, push to the cloud on a debounce so a burst of
-   keystrokes becomes a single request. The year is captured when the write
-   is scheduled, so switching year mid-debounce still saves the lane that
-   was actually edited. */
+   keystrokes becomes a single request.
+
+   SBU, year and the lane are captured when the write is scheduled. The lane
+   is held by reference, so later edits to the same map still ride along, but
+   switching SBU replaces state.years wholesale — which leaves a queued write
+   still pointing at the map it was actually made against. */
 function persist() {
+  const sbu = state.sbu;
+  const yearKey = state.year;
+  const lane = state.years[yearKey];
   cacheLocal();
   setSync('saving');
-  clearTimeout(cloudTimer);
-  const yearKey = state.year;
-  cloudTimer = setTimeout(() => {
-    cloudSaveYear(yearKey, state.years[yearKey])
-      .then(() => setSync('synced'))
-      .catch(() => setSync('offline'));
-  }, 700);
+  schedule(() => cloudSaveYear(sbu, yearKey, lane));
 }
 
 function setSync(s) {
@@ -227,17 +239,17 @@ function autogrow(ta) {
 }
 
 function render() {
-  bandsEl.replaceChildren(...DEFAULT_BANDS.map((band, bi) => renderBand(band, bi)));
+  bandsEl.replaceChildren(...BANDS.map((name, bi) => renderBand(name, bi)));
   bandsEl.querySelectorAll('textarea').forEach(autogrow);
   paintMeta();
   paintToolbar();
 }
 
-function renderBand(band, bi) {
+function renderBand(name, bi) {
   return h('section', { class: 'sm-bandrow' },
     h('div', { class: 'sm-band' },
       h('div', { class: 'sm-bandlabel' },
-        h('h2', { class: 'sm-bandname' }, band.name)),
+        h('h2', { class: 'sm-bandname' }, name)),
       h('div', { class: 'sm-lanes' }, renderLane(state.year, bi))
     )
   );
@@ -336,14 +348,14 @@ function renderCard(cell, key, bi, ci) {
 /* Toolbar labels repaint on their own so a sync-state change mid-typing
    never triggers a full re-render (which would drop the caret). */
 /* The Year dropdown is the switcher, so the heading and tab title follow it
-   rather than sitting on a hard-coded year. SBU is written from the constant
-   so the markup and the row key cannot drift apart. */
+   rather than sitting on a hard-coded year. The tab title carries the SBU too,
+   so several SBUs open at once stay tellable apart. */
 function paintMeta() {
   const year = YEAR_OF[state.year];
-  byId('sbu').textContent = SBU;
+  byId('sbu').value = state.sbu;
   byId('year').value = state.year;
   byId('page-title').textContent = 'Strategy Map ' + year;
-  document.title = 'Strategy Map ' + year + ' — Megawide';
+  document.title = state.sbu + ' Strategy Map ' + year + ' — Megawide';
 }
 
 function paintToolbar() {
@@ -412,6 +424,20 @@ function confirmAction(opts) {
    Toolbar
    ========================================================================== */
 
+// Options come from SBUS so the markup cannot drift from the storage keys.
+byId('sbu').replaceChildren(...SBUS.map(code => h('option', { value: code }, code)));
+
+// Switching SBU loads a different row. Flush anything queued first, so an
+// edit to the SBU being left behind is not stranded by the debounce.
+byId('sbu').addEventListener('change', e => {
+  const next = SBUS.indexOf(e.target.value) >= 0 ? e.target.value : DEFAULT_SBU;
+  if (next === state.sbu) return;
+  runPending();
+  state.sbu = next;
+  try { localStorage.setItem(SBU_KEY, next); } catch (err) {}
+  loadSbu();
+});
+
 // Switching year is a view change only — nothing is written.
 byId('year').addEventListener('change', e => {
   state.year = e.target.value === 'prev' ? 'prev' : 'curr';
@@ -421,16 +447,17 @@ byId('year').addEventListener('change', e => {
 byId('btn-reset').addEventListener('click', () => {
   const year = YEAR_OF[state.year];
   confirmAction({
-    title: 'Reset FY' + year + '?',
-    body: 'Every objective and initiative in FY' + year + ' will be replaced by the '
-        + 'starting template. The other year is not affected. This cannot be undone.',
+    title: 'Reset ' + state.sbu + ' FY' + year + '?',
+    body: 'Every objective and initiative in ' + state.sbu + ' FY' + year
+        + ' will be cleared. The other year and the other SBUs are not affected. '
+        + 'This cannot be undone.',
     confirmLabel: 'Reset'
   }).then(ok => {
     if (!ok) return;
     // Scoped to the selected year to match what Save writes. Clearing both
     // years would only persist half of it and leave the page out of step
     // with the stored row.
-    state.years[state.year] = emptyYears()[state.year];
+    state.years[state.year] = blankYears()[state.year];
     persist();
     render();
   });
@@ -439,11 +466,14 @@ byId('btn-reset').addEventListener('click', () => {
 // Save flushes past the debounce and writes immediately — still only the
 // year and SBU currently selected.
 byId('btn-save').addEventListener('click', () => {
+  const sbu = state.sbu;
+  const yearKey = state.year;
+  const lane = state.years[yearKey];
   cacheLocal();
+  pendingWrite = null;
   clearTimeout(cloudTimer);
   setSync('saving');
-  const yearKey = state.year;
-  cloudSaveYear(yearKey, state.years[yearKey]).then(() => {
+  cloudSaveYear(sbu, yearKey, lane).then(() => {
     state.justSaved = true;
     setSync('synced');
     clearTimeout(savedTimer);
@@ -455,38 +485,39 @@ byId('btn-save').addEventListener('click', () => {
    Boot
    ========================================================================== */
 
-(function init() {
-  // 1. Paint from the local cache immediately so the map never flashes empty.
-  try {
-    const saved = localStorage.getItem(STORE_KEY);
-    if (saved) {
-      state.years = normalizeYears(JSON.parse(saved));
-    } else {
-      const v1 = localStorage.getItem('megawide-strategy-map-v1');
-      if (v1) {
-        const bands = JSON.parse(v1);
-        state.years = normalizeYears({ prev: (bands || []).map(b => b && b.cells), curr: [] });
-      }
-    }
-  } catch (e) {
-    state.years = emptyYears();
-  }
+/* Show the selected SBU: paint its cached copy at once so the map never
+   flashes empty, then reconcile against its row. */
+function loadSbu() {
+  const sbu = state.sbu;
 
-  // Never let the local paint stop step 2 — the cloud is what repairs a bad cache.
-  try { render(); } catch (e) { console.error('initial render failed', e); }
+  state.years = readCache(sbu) || blankYears();
+  // Never let a bad cache stop the load below, which is what repairs it.
+  try { render(); } catch (e) { console.error('render failed', e); }
 
-  // 2. Reconcile against the cloud, which is the source of truth.
   setSync('loading');
-  cloudLoad().then(res => {
+  cloudLoad(sbu).then(res => {
+    if (state.sbu !== sbu) return;   // switched again while this was in flight
     if (res) {
       state.years = res.years;
       cacheLocal();
       render();
       setSync('synced');
       // Finish the one-time move onto the SBU-keyed row.
-      return res.migrated ? cloudPut(SBU, state.years) : null;
+      return res.migrated ? cloudPut(sbu, state.years) : null;
     }
-    // Nothing stored for this SBU yet — seed it from whatever we have locally.
-    return cloudPut(SBU, state.years).then(() => setSync('synced'));
-  }).catch(() => setSync('offline'));
+    // No row for this SBU yet. Show it blank and leave the row uncreated —
+    // it appears on the first edit, so browsing SBUs writes nothing.
+    state.years = blankYears();
+    cacheLocal();
+    render();
+    setSync('synced');
+  }).catch(() => { if (state.sbu === sbu) setSync('offline'); });
+}
+
+(function init() {
+  try {
+    const saved = localStorage.getItem(SBU_KEY);
+    if (SBUS.indexOf(saved) >= 0) state.sbu = saved;
+  } catch (e) {}
+  loadSbu();
 })();

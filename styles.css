@@ -109,15 +109,15 @@ body {
 }
 .sm-meta-v { font-weight: 600; }
 
-/* Year switcher — FY2026 and FY2027 are separate maps. */
-.sm-year {
+/* The SBU and Year switchers. Each (SBU, year) pair is its own map. */
+.sm-select {
   font-family: var(--font-body); font-size: 13px; font-weight: 600;
   color: inherit; background: transparent;
   border: 2px solid var(--color-text); border-radius: 0;
   padding: 3px 6px; cursor: pointer;
 }
-.sm-year:hover { border-color: var(--color-accent); color: var(--color-accent); }
-.sm-year:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.sm-select:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.sm-select:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
 /* — toolbar row. The 46px gutter lines the content up with the band cards,
      which are inset by the vertical band label. — */
@@ -304,7 +304,7 @@ textarea.sm-in { overflow: hidden; min-height: 1.2em; }
      The objective title is already 17px; initiatives inherit 13px and the
      year select is 13px, so lift just those. */
   .sm-initiative .sm-in { font-size: 16px; }
-  .sm-year { font-size: 16px; }
+  .sm-select { font-size: 16px; }
 
   /* band label turns horizontal and sits above its cards */
   .sm-band { grid-template-columns: 1fr; gap: 12px; padding: 18px 0 24px; }

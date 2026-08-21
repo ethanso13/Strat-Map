@@ -6,10 +6,18 @@ Interactive corporate strategy map (Office of the CEO), published at
 Four perspective bands — Finance, Business, Internal Business Process, Learning and
 Growth — each holding objectives and their initiatives.
 
-The masthead carries **SBU** (fixed at `CORP`) and **Year**. Year is the switcher:
-FY2026 and FY2027 are two separate maps and one is shown at a time. It defaults to
-FY2027, and the heading tracks the selection. Switching is a view change only —
-nothing is written.
+The masthead carries two switchers, **SBU** and **Year**. Every (SBU, year) pair is a
+separate map and one is shown at a time.
+
+- **SBU** — `CORP`, `MCC`, `PCS`, `PTX`, `C2W`, `PH1`. Each is its own row. The choice
+  is remembered across reloads, and the browser tab title carries it so several open at
+  once stay tellable apart.
+- **Year** — FY2026 or FY2027, defaulting to FY2027. The heading tracks the selection.
+
+Switching either is a view change only; nothing is written. An SBU with nothing stored
+shows a blank four-band map, and its row is not created until the first edit — browsing
+the list writes nothing. Only `CORP` inherited the original pre-SBU map; the rest
+started empty.
 
 On FY2026 each objective offers *Copy to 2027 →*, and each band a *Copy all to 2027 →*,
 to carry work forward. Those actions do not appear on FY2027, which has nothing to copy
@@ -61,13 +69,18 @@ The map state lives in a single Supabase row and is shared by everyone who opens
 | Payload | `years jsonb` |
 
 **Saves are scoped to the selected SBU and year.** Writing goes through
-`cloudSaveYear()`, which re-reads the row and replaces only the lane for the year on
-screen. Sending the whole object back would let someone editing FY2027 overwrite FY2026
-with whatever stale copy their browser was holding — last write wins, silently. Reset is
-scoped the same way, for the same reason.
+`cloudSaveYear(sbu, year, lane)`, which re-reads that SBU's row and replaces only the
+lane for the year on screen. Sending the whole object back would let someone editing
+FY2027 overwrite FY2026 with whatever stale copy their browser was holding — last write
+wins, silently. Reset is scoped the same way, and clears the selected year rather than
+restoring a template (a single hardcoded template stopped making sense once there were
+six SBUs).
 
-Adding another SBU means adding a row with that code and letting the page pick it; the
-storage layer already keys on it.
+A queued write captures its SBU, year and lane at schedule time, and switching SBU
+flushes anything pending, so an edit is never written against the wrong map.
+
+Adding an SBU is a one-line change to `SBUS` in `app.js`; the dropdown and the storage
+keys both come from that list.
 
 The old pre-SBU row `id = 'default'` is migrated from once on first load and then left
 alone, so it remains as a point-in-time backup.
